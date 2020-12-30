@@ -5,42 +5,66 @@ import gym
 import imageio
 import numpy as np
 import tensorflow as tf
+import tensorflow.keras as keras
 from tensorflow.keras.optimizers import Adam
 
+import dqn.networks.networks as networks
 from dqn.environment.atari_env import Environment
-from dqn.networks.dqn_network import DQNNetwork
 from dqn.utils.memory import ReplayMemory, Transition
 
+def build_network(network_type: str, num_actions):
+    if network_type is None: # default setting
+        return networks.DQNNetwork(num_actions, num_actions)
+    elif network_type == "duel":
+        return networks.DuelDQNNetwork(num_actions, num_actions)
+    else: raise KeyError("The network type {} does not exist!".format(network_type))
 
 class Agent:
     """
     Class for DQN model architecture.
     """
-    def __init__(self, env="BreakoutNoFrameskip-v4"):
-        self.game_id = env
-        self.env = Environment(self.game_id, train=True)
-        self.discount_factor = 0.99
-        self.minibatch_size = 32
-        self.update_frequency = 4 # the frequency to update the main Q-network
-        self.target_network_update_freq = 1000
-        self.agent_history_length = 4 # the number of consecutive frames in a states
+    def __init__(self, 
+                 game_id,
+                 network_type = None,
+                 discount_factor = 0.99,
+                 minibatch_size = 32,
+                 update_frequency = 4,
+                 target_network_update_freq = 1000,
+                 optimizer = Adam(learning_rate=1e-4, epsilon=1e-6),
+                 init_explr = 1.0,
+                 final_explr = 0.1,
+                 final_explr_frame = 1000000,
+                 replay_start_size = 10000,
+                 loss = tf.keras.losses.Huber(),
+                 training_frames = int(1e7),
+                 log_path = "./log/",
+                 print_log_interval = 10,
+                 save_weight_interval = 10):
+
+        self.game_id = game_id
+        self.env = Environment(game_id, train=True)
+        self.discount_factor = discount_factor
+        self.minibatch_size = minibatch_size
+        self.update_frequency = update_frequency
+        self.target_network_update_freq = target_network_update_freq
+        self.agent_history_length = 4
+        self.main_network = build_network(network_type, self.agent_history_length)
+        self.target_network = build_network(network_type, self.agent_history_length)
+        self.optimizer = optimizer
+        self.init_explr = init_explr
+        self.final_explr = final_explr
+        self.final_explr_frame = final_explr_frame
+        self.replay_start_size = replay_start_size
+        self.loss = loss
+        self.training_frames = training_frames
+        self.log_path = log_path + datetime.now().strftime("%Y%m%d_%H%M%S") + "_" + self.game_id
+        self.print_log_interval = print_log_interval
+        self.save_weight_interval = save_weight_interval
         self.memory = ReplayMemory(capacity=10000, minibatch_size=self.minibatch_size)
-        self.main_network = DQNNetwork(num_actions=self.env.get_action_space_size(), agent_history_length=self.agent_history_length)
-        self.target_network = DQNNetwork(num_actions=self.env.get_action_space_size(), agent_history_length=self.agent_history_length)
-        self.optimizer = Adam(learning_rate=1e-4, epsilon=1e-6)
-        self.init_explr = 1.0 # intial epsilon in epsilon greedy
-        self.final_explr = 0.1
-        self.final_explr_frame = 1000000
-        self.replay_start_size = 10000 # iteration before epsilon decay (for filling replay buffer using purely random policy)
-        self.loss = tf.keras.losses.Huber()
         self.loss_metric = tf.keras.metrics.Mean(name="loss")
         self.q_metric = tf.keras.metrics.Mean(name="Q_value")
-        self.training_frames = int(1e7)
-        self.log_path = "./log/" + datetime.now().strftime("%Y%m%d_%H%M%S") + "_" + self.game_id
         self.summary_writer = tf.summary.create_file_writer(self.log_path + "/summary/")
         self.life_game = None
-        self.print_log_interval = 10
-        self.save_weight_interval = 10
 
         self.env.reset()
         _, _, _, info = self.env.step(0)
@@ -156,12 +180,12 @@ class Agent:
                 self.memory.push(state, action, reward, next_state, done)
                 state = next_state
 
-                if (total_step % self.update_frequency == 0) and (total_step > self.replay_start_size):
+                if (total_step % self.update_frequency == 0) and (total_step > self.replay_start_size): # time to update the Q-network
                     indices = self.memory.get_minibatch_indices()
                     state_batch, action_batch, reward_batch, next_state_batch, terminal_batch = self.memory.generate_minibatch_samples(indices)
                     self.update_main_q_network(state_batch, action_batch, reward_batch, next_state_batch, terminal_batch)
 
-                if (total_step % self.target_network_update_freq == 0) and (total_step > self.replay_start_size):
+                if (total_step % self.target_network_update_freq == 0) and (total_step > self.replay_start_size): # time to update target network
                     loss = self.update_target_network()
                 
                 total_step += 1
@@ -191,7 +215,7 @@ class Agent:
         
         frame_set = []
         reward_set = []
-        test_env = Environment(self.game_id, train=False)
+        test_env = Environment(self.game_id, train=False) # play the original game without clipping the rewards
         for _ in range(trial):
 
             state = test_env.reset()
@@ -230,7 +254,7 @@ class Agent:
         best_score = np.max(reward_set)
         print("Best score of current network ({} trials): {}".format(trial, best_score))
         best_score_ind = np.argmax(reward_set)
-        imageio.mimsave("test.gif", frame_set[best_score_ind], fps=15)
+        imageio.mimsave("current_best_replay.gif", frame_set[best_score_ind], fps=15)
 
         if episode is not None:
             with self.summary_writer.as_default():

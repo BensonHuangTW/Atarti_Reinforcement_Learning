@@ -10,13 +10,14 @@ def args_parse():
     parser.add_argument('--play', help="Play with a given weight directory")
     parser.add_argument('--log_interval', default=100, help="Interval of logging stdout", type=int)
     parser.add_argument('--save_weight_interval', default=1000, help="Interval of saving weights", type=int)
+    parser.add_argument('--network', default=None, help="Network architecture to train")
     args = parser.parse_args()
     return args
 
 
 if __name__ == "__main__":
     args = args_parse()
-    agent = Agent(args.env)
+    agent = Agent(game_id=args.env, network_type=args.network)
     agent.print_log_interval = args.log_interval
     agent.save_weight_interval = args.save_weight_interval
     if args.train:
