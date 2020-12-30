@@ -21,17 +21,17 @@ class Agent:
         self.env = Environment(self.game_id, train=True)
         self.discount_factor = 0.99
         self.minibatch_size = 32
-        self.update_frequency = 4
+        self.update_frequency = 4 # the frequency to update the main Q-network
         self.target_network_update_freq = 1000
-        self.agent_history_length = 4
+        self.agent_history_length = 4 # the number of consecutive frames in a states
         self.memory = ReplayMemory(capacity=10000, minibatch_size=self.minibatch_size)
         self.main_network = DQNNetwork(num_actions=self.env.get_action_space_size(), agent_history_length=self.agent_history_length)
         self.target_network = DQNNetwork(num_actions=self.env.get_action_space_size(), agent_history_length=self.agent_history_length)
         self.optimizer = Adam(learning_rate=1e-4, epsilon=1e-6)
-        self.init_explr = 1.0
+        self.init_explr = 1.0 # intial epsilon in epsilon greedy
         self.final_explr = 0.1
         self.final_explr_frame = 1000000
-        self.replay_start_size = 10000
+        self.replay_start_size = 10000 # iteration before epsilon decay (for filling replay buffer using purely random policy)
         self.loss = tf.keras.losses.Huber()
         self.loss_metric = tf.keras.metrics.Mean(name="loss")
         self.q_metric = tf.keras.metrics.Mean(name="Q_value")
@@ -60,7 +60,7 @@ class Agent:
         Returns:
             action (tf.int32): Action index
         """
-        recent_state = tf.expand_dims(state, axis=0)
+        recent_state = tf.expand_dims(state, axis=0) # e.g. shape: (84, 84, 4) -> (1, 84, 84, 4)
         if tf.random.uniform((), minval=0, maxval=1, dtype=tf.float32) < exploration_rate:
             action = tf.random.uniform((), minval=0, maxval=self.env.get_action_space_size(), dtype=tf.int32)
         else:
