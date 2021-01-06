@@ -12,11 +12,11 @@ import dqn.networks.networks as networks
 from dqn.environment.atari_env import Environment
 from dqn.utils.memory import ReplayMemory, Transition
 
-def build_network(network_type: str, num_actions):
+def build_network(network_type: str, num_actions, agent_history_length):
     if network_type is None: # default setting
-        return networks.DQNNetwork(num_actions, num_actions)
+        return networks.DQNNetwork(num_actions, num_actions, agent_history_length)
     elif network_type == "duel":
-        return networks.DuelDQNNetwork(num_actions, num_actions)
+        return networks.DuelDQNNetwork(num_actions, num_actions, agent_history_length)
     else: raise KeyError("The network type {} does not exist!".format(network_type))
 
 class Agent:
@@ -48,8 +48,8 @@ class Agent:
         self.update_frequency = update_frequency
         self.target_network_update_freq = target_network_update_freq
         self.agent_history_length = 4
-        self.main_network = build_network(network_type, self.agent_history_length)
-        self.target_network = build_network(network_type, self.agent_history_length)
+        self.main_network = build_network(network_type, self.env.get_action_space_size(), self.agent_history_length)
+        self.target_network = build_network(network_type, self.env.get_action_space_size(), self.agent_history_length)
         self.optimizer = optimizer
         self.init_explr = init_explr
         self.final_explr = final_explr
