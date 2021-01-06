@@ -1,6 +1,5 @@
 from collections import namedtuple
 import random
-from logger import logger
 import tensorflow as tf
 import numpy as np
 
@@ -20,15 +19,6 @@ class ReplayMemory:
         self._memory = []
         self._index = 0
         self._full = False
-        self.verbose = verbose
-
-        if verbose:
-            # state and next_state will use uint8 (8 bit = 1 Byte)
-            # action uses int32 (32 bit = 4 Byte)
-            # reward uses float32 (32 bit = 4 Byte)
-            # terminal uses boolean (8 bit = 1 Byte (numpy))
-            total_est_mem = self.capacity * (np.prod(state_shape) * 4 * 2 + 4 + 4 + 1) / 1024.0**3
-            logger.info("Estimated memory usage ONLY for storing replays: {:.4f} GB".format(total_est_mem))
 
     def __len__(self):
         return len(self._memory)
@@ -53,8 +43,6 @@ class ReplayMemory:
             self._memory.append(None)
         if self._index + 1 == self.capacity:
             self._full = True
-            if self.verbose:
-                logger.info("Replay memory is full")
         self._memory[self._index] = trsn
         self._index = (self._index + 1) % self.capacity
 
