@@ -11,10 +11,13 @@ assert major_ver >= 2 and minor_ver >= 3, \
     "This notebook requires TensorBoard 2.3 or later."
 print("TensorBoard version: ", tb.__version__)
 
-url = [("duel_exp", "8xRTkK91TOqKux7j8ILVOg"),
+url = [("no_clipping_no_framestack", "BXWKsOClSESqR9ZTxIDvpQ"),
+       ("no_clipping", "T815gfawS1SvBT1CpSwjaA"),
+       ("original_stack16_exp", "Mlh8M5eVReOSR53LOA1WKw"),
+       ("duel_exp", "8xRTkK91TOqKux7j8ILVOg"),
        ("original_exp", "E2liJk1GT7Sxf9h7ZPq3Jw"),
-       ("original_stack8_exp", "8xRTkK91TOqKux7j8ILVOg"),
-       ("original_stack16_exp", "lnsNvAJDQ0WhVZ8IwASQ3w")]
+       ("original_stack8_exp", "8xRTkK91TOqKux7j8ILVOg")
+       ]
 for exp in url:
     experiment = tb.data.experimental.ExperimentFromDev(exp[1])
     data = experiment.get_scalars()
