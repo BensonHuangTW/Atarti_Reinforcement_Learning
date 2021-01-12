@@ -207,6 +207,64 @@ class Agent:
                         self.main_network.save_weights(self.log_path + "/weights/episode_{}".format(episode))
                         self.play(self.log_path + "/weights/", episode=episode)
 
+    def save_gif(self, episode, trial, max_playing_time=10):
+
+        load_dir = "./log/20210110_190115_BreakoutNoFrameskip-v4/weights/"
+        episode = int(episode)
+
+        if load_dir:
+            loaded_ckpt = tf.train.latest_checkpoint(load_dir)
+            self.main_network.load_weights(loaded_ckpt)
+        
+        frame_set = []
+        reward_set = []
+        test_env = Environment(self.game_id, train=False) # play the original game without clipping the rewards
+        for _ in range(trial):
+
+            state = test_env.reset()
+            frames = []
+            test_step = 0
+            test_reward = 0
+            done = False
+            test_memory = ReplayMemory(10000, verbose=False)
+
+            while not done:
+
+                frames.append(test_env.render())
+
+                action = self.get_action(tf.constant(state, tf.float32), tf.constant(0.0, tf.float32))
+     
+                next_state, reward, done, info = test_env.step(action)
+                test_reward += reward
+
+                test_memory.push(state, action, reward, next_state, done)
+                state = next_state
+
+                test_step += 1
+
+                if done and self.life_game and (info["ale.lives"] != 0):
+                    test_env.reset()
+                    test_step = 0
+                    done = False
+
+                if len(frames) > 15 * 60 * max_playing_time: # To prevent falling infinite repeating sequences.
+                    print("Playing takes {} minutes. Force termination.".format(max_playing_time))
+                    break
+
+            reward_set.append(test_reward)
+            frame_set.append(frames)
+
+        best_score = np.max(reward_set)
+        print("Best score of current network ({} trials): {}".format(trial, best_score))
+        best_score_ind = np.argmax(reward_set)
+        imageio.mimsave("./gif/"+str(episode)+".gif", frame_set[best_score_ind], fps=15)
+
+        if episode is not None:
+            with self.summary_writer.as_default():
+                tf.summary.scalar("Test score", best_score, step=episode)
+
+
+
     def play(self, load_dir=None, episode=None, trial=5, max_playing_time=10):
         
         if load_dir:
