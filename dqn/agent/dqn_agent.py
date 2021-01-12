@@ -208,7 +208,6 @@ class Agent:
                         self.play(self.log_path + "/weights/", episode=episode)
 
     def play(self, load_dir=None, episode=None, trial=5, max_playing_time=10):
-        
         if load_dir:
             loaded_ckpt = tf.train.latest_checkpoint(load_dir)
             self.main_network.load_weights(loaded_ckpt)
@@ -259,7 +258,45 @@ class Agent:
         if episode is not None:
             with self.summary_writer.as_default():
                 tf.summary.scalar("Test score", best_score, step=episode)
+                
+    def myplay(self, load_dir, max_playing_time=10):
+        loaded_ckpt = tf.train.latest_checkpoint(load_dir)
+        self.main_network.load_weights(loaded_ckpt)
 
+        test_env = Environment(self.game_id, train=False)
+        state = test_env.reset()
+        frames = []
+        test_step = 0
+        test_reward = 0
+        done = False
+        test_memory = ReplayMemory(10000, verbose=False)
+
+        while not done:
+            frames.append(test_env.render())
+
+            action = self.get_action(tf.constant(state, tf.float32), tf.constant(0.0, tf.float32))
+
+            next_state, reward, done, info = test_env.step(action)
+            test_reward += reward
+
+            test_memory.push(state, action, reward, next_state, done)
+            state = next_state
+
+            test_step += 1
+
+            if done and self.life_game and (info["ale.lives"] != 0):
+                test_env.reset()
+                test_step = 0
+                done = False
+
+            if len(frames) > 15 * 60 * max_playing_time: # To prevent falling infinite repeating sequences.
+                print("Playing takes {} minutes. Force termination.".format(max_playing_time))
+                break
+        print("Total Reward: %.2f" % (test_reward))
+        imageio.mimsave("myplay.gif", frames, fps=15)
+        
+        return test_memory
+        
     def write_summary(self, episode, latest_100_score, episode_score, total_step, eps):
 
         with self.summary_writer.as_default():
