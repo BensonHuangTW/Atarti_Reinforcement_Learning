@@ -1,9 +1,16 @@
 #include <fstream>
 #include <string>
 #include <iostream>
+#include <signal.h>
 
 #define size 10
 using namespace std; 
+
+void sigint(int s){
+    printf("Caught signal %d\n",s);
+    exit(1); 
+}
+
 
 int main(){
 
